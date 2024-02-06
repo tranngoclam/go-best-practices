@@ -1,0 +1,134 @@
+# Go Development Best Practices
+
+Lam Tran
+Software Engineer
+lam.tran@tamara.co
+
+## Agenda
+
+1. Code
+2. Test
+3. Build
+4. Observe
+
+## Go coding best practices
+
+## [code] Common structure
+
+- `cmd` package to store multiple binaries.
+- `internal` packages since Go 1.4, see [doc](https://go.dev/doc/go1.4#internalpackages) and [design](https://docs.google.com/document/d/1e8kOo3r51b2BWtTs_1uADIA5djfXhPT36s6eHVRIvaU/edit).
+
+## [code] Coding style and convention
+
+- Effective Go (Names), see [doc](https://go.dev/doc/effective_go#names)
+- Package names, see [blog](https://go.dev/blog/package-names)
+
+## [code] Code generation
+
+- `//go:generate` directive since Go 1.4, see [blog](https://go.dev/blog/generate) and [design](https://go.googlesource.com/proposal/+/refs/heads/master/design/go-generate.md).
+- DO NOT format the generated code.
+
+## [code] Go Modules
+
+Go mod provides access to operations on modules.
+
+Usage:
+
+	go mod <command> [arguments]
+
+The commands are:
+
+	download    download modules to local cache
+	edit        edit go.mod from tools or scripts
+	graph       print module requirement graph
+	init        initialize new module in current directory
+	tidy        add missing and remove unused modules
+	vendor      make vendored copy of dependencies
+	verify      verify dependencies have expected content
+	why         explain why packages or modules are needed
+
+Use "go help mod <command>" for more information about a command.
+
+## [code] Go Multi-module workspace
+
+See [blog](https://go.dev/blog/get-familiar-with-workspaces) and [tutorial](https://go.dev/doc/tutorial/workspaces).
+
+Usage:
+
+	go work <command> [arguments]
+
+The commands are:
+
+	edit        edit go.work from tools or scripts
+	init        initialize workspace file
+	sync        sync workspace build list to modules
+	use         add modules to workspace file
+
+## [code] Dependency management
+
+- Follow Go [Release Policy](https://go.dev/doc/devel/release#policy)
+
+    Each major Go release is supported until there are two newer major releases. For example, Go 1.5 was supported until the Go 1.7 release, and Go 1.6 was supported until the Go 1.8 release. We fix critical problems, including critical security problems, in supported releases as needed by issuing minor revisions (for example, Go 1.6.1, Go 1.6.2, and so on).
+
+- Use official, popular, zero-dependency, in-active maintenance modules.
+- Use dependabot to keep dependencies up-to-date as soon as possible.
+- "A little copying is better than a little dependency." - [Go Proverbs](https://go-proverbs.github.io)
+
+## [code] DevTools - golangci-lint
+
+Install
+
+    $ curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh \
+        -s -- -b $(go env GOPATH)/bin v1.55.2
+
+Common linters
+
+    $ golangci-lint linters
+    errcheck        errcheck is a program for checking for unchecked errors in Go code
+    govet           vet examines Go source code and reports suspicious constructs
+    unused          checks Go code for unused constants, variables, functions and types
+    depguard        checks if package imports are in a list of acceptable packages
+    revive          fast, configurable, extensible, flexible, and beautiful linter for Go
+    gci             controls Go package import order and makes it always deterministic
+    gosec           inspects source code for security problems
+    ...
+
+Run with `--fix` for auto-fixing found issues (if linter supports)
+
+## [code] DevTools - mockery/gomock
+
+- [mockery](https://github.com/vektra/mockery) vs [gomock](https://github.com/uber-go/mock)
+
+## [code] Tips & tricks
+
+Execute remote cli with `go run` since Go 1.17
+
+    $ go run golang.org/x/tools/cmd/deadcode@latest .
+
+    # main.go (executing with go generate)
+    //go:generate go run github.com/bufbuild/buf/cmd/buf@v1.29.0 generate
+    package main
+
+Use built-in packages since Go 1.21: [slices](https://pkg.go.dev/slices), [maps](https://pkg.go.dev/maps), [cmp](https://pkg.go.dev/cmp)
+
+## Go testing best practices
+
+## [test] Table-driven tests
+
+## [test] Separate integration test with build tags
+
+## [test] Tips & tricks
+
+- https://pkg.go.dev/testing
+- Use `t.Parallel()` for parallel testing.
+- Use `t.Setenv()` to set environment variables (since Go 1.17)
+-
+
+## Go building best practices
+
+## [build] Embedding build metadata
+
+## [build] Dockerfile best practices
+
+## Go observability best practices
+
