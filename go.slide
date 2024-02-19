@@ -19,6 +19,9 @@ lam.tran@tamara.co
 - `cmd` package to store multiple binaries.
 - `internal` packages since Go 1.4, see [doc](https://go.dev/doc/go1.4#internalpackages) and [design](https://docs.google.com/document/d/1e8kOo3r51b2BWtTs_1uADIA5djfXhPT36s6eHVRIvaU/edit).
 
+References:
+- [Standard Go Project Layout](https://github.com/golang-standards/project-layout)
+
 ## [code] Coding style and convention
 
 Effective Go (Names), see [doc](https://go.dev/doc/effective_go#names), package names, see [blog](https://go.dev/blog/package-names)
@@ -106,12 +109,10 @@ The commands are:
 
 ## [code] DevTools - golangci-lint
 
-Install
-
     $ curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh \
         -s -- -b $(go env GOPATH)/bin v1.55.2
 
-Common linters
+List of linters
 
     $ golangci-lint linters
     errcheck        errcheck is a program for checking for unchecked errors in Go code
@@ -123,34 +124,72 @@ Common linters
     gosec           inspects source code for security problems
     ...
 
-Run with `--fix` for auto-fixing found issues (if linter supports)
+- Run with `--fix` for auto-fixing found issues (if linter supports)
+- Use `enable-all: true` and disable unnecessary/deprecated linters
 
-## [code] DevTools - mockery/gomock
+## [code] DevTools - mockery
 
-- [mockery](https://github.com/vektra/mockery) vs [gomock](https://github.com/uber-go/mock)
+Use [mockery package configuration](https://vektra.github.io/mockery/latest/features/#packages-configuration)
+
+    with-expecter: True
+    packages:
+      github.com/vektra/mockery/v2/pkg:
+        interfaces:
+          TypesPackage:
+          RequesterVariadic:
+            config:
+              with-expecter: False
+            configs:
+              - mockname: MockRequesterVariadicOneArgument
+                unroll-variadic: False
+              - mockname: MockRequesterVariadic
+      io:
+        config:
+          all: True
+        interfaces:
+          Writer:
+            config:
+              with-expecter: False
 
 ## [code] Configuration
 
+Only provide configurations when needed.
+
 Use URI for dependency which has connection string.
 
+    # define mysql uri using environment variable
     MYSQL_URI=mysql://user:password@tcp(host:port)/dbname?query
-    REDIS_URI=redis://:password@localhost:6379/1?dial_timeout=5s
+
+    // from "github.com/go-sql-driver/mysql"
+    func ParseDSN(dsn string) (cfg *Config, err error) { }
+
+    # define redis uri using environment variable
+    REDIS_URI=redis://user:password@localhost:6789/3?dial_timeout=3&db=1&read_timeout=6s&max_retries=2
+
+    // from "github.com/redis/go-redis/v9"
+    func ParseURL(redisURL string) (*Options, error) { }
 
 Avoid redundant data type
 
     type Config struct {
         // use `slog.Level` instead of `string`
-        LogLevel slog.Level     `env:"LOG_LEVEL" envDefault:"INFO"`
+        LogLevel slog.Level     `env:"LOG_LEVEL" yaml:"log_level" json:"log_level"`
+
+        // use `netip.Addr` instead of `string`
+        IP netip.Addr           `env:"IP"        yaml:"ip"        json:"ip"`
+
         // use `time.Duration` instead of `int`
-        Timeout time.Duration   `env:"TIMEOUT" envDefault:"30s"`
+        Timeout time.Duration   `env:"TIMEOUT"   yaml:"timeout"   json:"timeout"`
     }
+
+## [code] Configuration (cnt.)
 
 Prefer standard configuration environment variables from external sdk
 
     AWS_ENDPOINT_URL_DYNAMODB="https://dynamodb.me-central-1.amazonaws.com"
     OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic 123456abc123456abc"
 
-## [code] Tips & tricks
+## [code] Misc
 
 Execute remote cli with `go run` since Go 1.17
 
@@ -162,20 +201,29 @@ Execute remote cli with `go run` since Go 1.17
 
 Use built-in packages since Go 1.21: [slices](https://pkg.go.dev/slices), [maps](https://pkg.go.dev/maps), [cmp](https://pkg.go.dev/cmp)
 
+Use [gonew](https://go.dev/blog/gonew) to start a new project from a template, see examples: [1](https://github.com/GoogleCloudPlatform/go-templates) and [2](https://github.com/ServiceWeaver/template)
+
+Find unreachable functions with [deadcode](https://go.dev/blog/deadcode)
+
+Vulnerability Management for Go with [govulncheck](https://go.dev/blog/vuln)
+
 ## Go testing best practices
 
 ## [test] Table-driven tests
 
-## [test] Separate integration test with build tags
-
-## [test] Tips & tricks
+## [test] Misc
 
 - See testing [docs](https://pkg.go.dev/testing)
 - Use `t.Parallel()` for parallel testing.
 - Use `t.Skip()` to skip a test.
-- Use `t.Setenv()` to set environment variables (since Go 1.17)
+- Use `t.Setenv()` to set environment variables (since Go 1.17).
 - Use `t.Cleanup()` to clean up after a test or benchmark has finished (since Go 1.14), see [article](https://ieftimov.com/posts/testing-in-go-clean-tests-using-t-cleanup)
-- Use `testdata` to store test fixtures
+- Use `go test -tags integration` to separate integration vs unit tests.
+- Use `testdata` to manage test fixtures.
+- Use `go test -race` to detect data race in tests.
+- Use Uber's [goleak](https://github.com/uber-go/goleak) to detect leaked goroutines.
+- Code coverage for Go integration tests, see [blog](https://go.dev/blog/integration-test-coverage).
+- Testable examples in Go, see [blog](https://go.dev/blog/examples)
 - References:
 
   - [Go Testing By Examples (Russ Cox)](https://www.youtube.com/watch?v=X4rxi9jStLo)
@@ -189,6 +237,18 @@ Use built-in packages since Go 1.21: [slices](https://pkg.go.dev/slices), [maps]
 
 ## [build] Dockerfile best practices
 
+- Get started with docker init command: [reference](https://www.docker.com/blog/docker-init-initialize-dockerfiles-and-compose-files-with-a-single-cli-command)
+- Use multi-stage builds: [reference](https://docs.docker.com/build/building/multi-stage)
+- Use RUN –mount=type=cache: [reference](https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/reference.md#run---mounttypecache)
+- Use RUN –mount=type=bind: [reference](https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/reference.md#run---mounttypebind)
+- Use RUN –mount=type=ssh: [reference](https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/reference.md#run---mounttypessh)
+- Use distroless image: [Chainguard](https://edu.chainguard.dev/chainguard/chainguard-images/getting-started/getting-started-go) | [Google Distroless](https://github.com/GoogleContainerTools/distroless)
+- Pin image tags to digests: [reference](https://github.com/step-security/secure-repo?tab=readme-ov-file#4-pin-image-tags-to-digests-in-dockerfiles)
+- Avoid copying files from host to container image.
+- Keep Go binary as small as possible: [reference](https://blog.howardjohn.info/posts/go-binary-size)
+- COPY from remote registry: [reference](https://github.com/openfga/openfga/blob/53deb4c165fbca3260b4342e714580d10a316dcf/Dockerfile#L23)
+- Adopt OCI labels: [reference](https://github.com/opencontainers/image-spec/blob/main/annotations.md) | [docker-metadata action](https://github.com/docker/metadata-action)
+
 ## Go deployment best practices
 
 ## [deploy] Health checks
@@ -198,5 +258,12 @@ Use built-in packages since Go 1.21: [slices](https://pkg.go.dev/slices), [maps]
   - [Amazon Builder - Implementing health checks](https://aws.amazon.com/builders-library/implementing-health-checks)
   - [Better Stack - Getting Started with Server Health Checks](https://betterstack.com/community/guides/monitoring/health-checks)
   - [Kubernetes Deep Health Check](https://encore.dev/blog/horror-stories-k8s)
+
+## [deploy] Database schema migration
+
+- Database schema migration should be a separate task, run before deploying applications.
+- Both old/new app versions must be compatible with old/new schema versions.
+
+## [deploy] Graceful shutdown
 
 ## Go observability best practices
