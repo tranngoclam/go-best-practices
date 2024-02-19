@@ -63,7 +63,7 @@ DO NOT format the generated code.
 
 ## [code] Go Modules
 
-Go mod provides access to operations on modules.
+Go mod provides access to operations on modules, see [blog](https://go.dev/blog/using-go-modules)
 
 Usage:
 
@@ -103,8 +103,8 @@ The commands are:
 
     Each major Go release is supported until there are two newer major releases. For example, Go 1.5 was supported until the Go 1.7 release, and Go 1.6 was supported until the Go 1.8 release. We fix critical problems, including critical security problems, in supported releases as needed by issuing minor revisions (for example, Go 1.6.1, Go 1.6.2, and so on).
 
-- Use official, popular, zero-dependency, in-active maintenance modules.
-- Use dependabot to keep dependencies up-to-date as soon as possible.
+- Use official, popular, zero/less-dependencies, in-active and stable maintenance modules.
+- Use dependabot/renovate to keep dependencies up-to-date as soon as possible.
 - "A little copying is better than a little dependency." - [Go Proverbs](https://go-proverbs.github.io)
 
 ## [code] DevTools - golangci-lint
@@ -151,23 +151,53 @@ Use [mockery package configuration](https://vektra.github.io/mockery/latest/feat
             config:
               with-expecter: False
 
-## [code] Configuration
+## [code] DevTools Management
 
-Only provide configurations when needed.
+[How can I track tool dependencies for a module?](https://go.dev/wiki/Modules#how-can-i-track-tool-dependencies-for-a-module)
+
+    $ cat tools.go
+    // +build tools
+    package tools
+
+    import (
+    	_ "golang.org/x/tools/cmd/stringer"
+    )
+
+    $ cat go.mod
+    module go.tools
+    go 1.21.6
+
+    require golang.org/x/tools v0.18.0
+
+    $ go install golang.org/x/tools/cmd/stringer
+    $ which stringer
+    /Users/lam/go/bin/stringer
+
+[Proposal: Adding tool dependencies to go.mod](https://go.googlesource.com/proposal/+/refs/changes/55/495555/5/design/48429-go-tool-modules.md)
+
+## [code] Configuration
 
 Use URI for dependency which has connection string.
 
-    # define mysql uri using environment variable
     MYSQL_URI=mysql://user:password@tcp(host:port)/dbname?query
-
     // from "github.com/go-sql-driver/mysql"
     func ParseDSN(dsn string) (cfg *Config, err error) { }
 
-    # define redis uri using environment variable
     REDIS_URI=redis://user:password@localhost:6789/3?dial_timeout=3&db=1&read_timeout=6s&max_retries=2
-
     // from "github.com/redis/go-redis/v9"
     func ParseURL(redisURL string) (*Options, error) { }
+
+    RABBITMQ_URI=amqp://user:pass@host:10000/vhost
+    // from "github.com/rabbitmq/amqp091-go"
+    func ParseURI(uri string) (URI, error) { }
+
+Use standard configuration environment variables from external sdk
+
+    AWS_ENDPOINT_URL_DYNAMODB="https://dynamodb.me-central-1.amazonaws.com"
+    OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic 123456abc123456abc"
+    NEW_RELIC_APP_NAME="checkout-service"
+
+## [code] Configuration (cnt.)
 
 Avoid redundant data type
 
@@ -182,12 +212,7 @@ Avoid redundant data type
         Timeout time.Duration   `env:"TIMEOUT"   yaml:"timeout"   json:"timeout"`
     }
 
-## [code] Configuration (cnt.)
-
-Prefer standard configuration environment variables from external sdk
-
-    AWS_ENDPOINT_URL_DYNAMODB="https://dynamodb.me-central-1.amazonaws.com"
-    OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic 123456abc123456abc"
+Only provide configurations when needed.
 
 ## [code] Misc
 
@@ -222,6 +247,9 @@ Vulnerability Management for Go with [govulncheck](https://go.dev/blog/vuln)
 - Use `testdata` to manage test fixtures.
 - Use `go test -race` to detect data race in tests.
 - Use Uber's [goleak](https://github.com/uber-go/goleak) to detect leaked goroutines.
+
+## [test] Misc (cnt.)
+
 - Code coverage for Go integration tests, see [blog](https://go.dev/blog/integration-test-coverage).
 - Testable examples in Go, see [blog](https://go.dev/blog/examples)
 - References:
@@ -249,11 +277,34 @@ Vulnerability Management for Go with [govulncheck](https://go.dev/blog/vuln)
 - COPY from remote registry: [reference](https://github.com/openfga/openfga/blob/53deb4c165fbca3260b4342e714580d10a316dcf/Dockerfile#L23)
 - Adopt OCI labels: [reference](https://github.com/opencontainers/image-spec/blob/main/annotations.md) | [docker-metadata action](https://github.com/docker/metadata-action)
 
+## [build] Dockerfile best practices (cnt.)
+
+    FROM golang:1.22.0@sha256:7b297d9... AS build
+
+    RUN --mount=type=cache,target=/go/pkg/mod \
+       --mount=type=bind,source=./go.mod,target=./go.mod \
+       --mount=type=bind,source=./go.sum,target=./go.sum \
+       go mod download
+    RUN --mount=type=cache,target=/go/pkg/mod \
+       --mount=type=cache,target=/root/.cache/go-build \
+       --mount=type=bind,target=. \
+       CGO_ENABLED=0 go build --ldflags "-s -w" \
+       -o /bin/server ./cmd/main.go
+
+    FROM cgr.dev/chainguard/static@sha256:43f8701...
+
+    COPY --from=build /bin/server /server
+    COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.24 /ko-app/grpc-health-probe /probe
+
+    CMD ["/server"]
+
 ## Go deployment best practices
 
 ## [deploy] Health checks
 
-- References:
+Use shallow health check: `GET /healthz` which returns `200 OK`
+
+References:
 
   - [Amazon Builder - Implementing health checks](https://aws.amazon.com/builders-library/implementing-health-checks)
   - [Better Stack - Getting Started with Server Health Checks](https://betterstack.com/community/guides/monitoring/health-checks)
@@ -263,7 +314,25 @@ Vulnerability Management for Go with [govulncheck](https://go.dev/blog/vuln)
 
 - Database schema migration should be a separate task, run before deploying applications.
 - Both old/new app versions must be compatible with old/new schema versions.
+- Use [golang-migrate/migrate](https://github.com/golang-migrate/migrate) to handle database schema migration.
+- Use migration directory integrity file, see [blog](https://atlasgo.io/concepts/migration-directory-integrity)
 
 ## [deploy] Graceful shutdown
 
+- Use `signal.NotifyContext(parent context.Context, signals ...os.Signal)` to listen unix signals (terminate, interrupt, kill, ...)
+
+References:
+
+  - [Graceful shutdown and zero downtime deployments in Kubernetes](https://learnk8s.io/graceful-shutdown)
+
 ## Go observability best practices
+
+## [observe] OpenTelemetry
+
+- Getting started with [documentation](https://opentelemetry.io/docs)
+- See OpenTelemetry in action: [demo](https://github.com/open-telemetry/opentelemetry-demo)
+
+References:
+
+  - [What Makes a Service Observable?](https://www.codereliant.io/what-makes-a-service-observable)
+
