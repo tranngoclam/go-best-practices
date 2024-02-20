@@ -65,6 +65,8 @@ DO NOT format the generated code.
 
 Go mod provides access to operations on modules, see [blog](https://go.dev/blog/using-go-modules)
 
+Organizing a Go module, see [docs](https://go.dev/doc/modules/layout)
+
 Usage:
 
 	go mod <command> [arguments]
@@ -79,8 +81,6 @@ The commands are:
 	vendor      make vendored copy of dependencies
 	verify      verify dependencies have expected content
 	why         explain why packages or modules are needed
-
-Use "go help mod <command>" for more information about a command.
 
 ## [code] Go Multi-module workspace
 
@@ -129,27 +129,25 @@ List of linters
 
 ## [code] DevTools - mockery
 
-Use [mockery package configuration](https://vektra.github.io/mockery/latest/features/#packages-configuration)
+Use [package configuration](https://vektra.github.io/mockery/latest/features/#packages-configuration)
 
     with-expecter: True
     packages:
       github.com/vektra/mockery/v2/pkg:
         interfaces:
-          TypesPackage:
           RequesterVariadic:
             config:
               with-expecter: False
-            configs:
-              - mockname: MockRequesterVariadicOneArgument
-                unroll-variadic: False
-              - mockname: MockRequesterVariadic
       io:
-        config:
-          all: True
         interfaces:
           Writer:
             config:
               with-expecter: False
+
+Use [expecter structs](https://vektra.github.io/mockery/latest/features/#expecter-structs)
+
+    requesterMock := mocks.NewRequester(t)
+    requesterMock.EXPECT().Get("some path").Return("result", nil)
 
 ## [code] DevTools Management
 
