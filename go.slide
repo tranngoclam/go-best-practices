@@ -230,13 +230,21 @@ Find unreachable functions with [deadcode](https://go.dev/blog/deadcode)
 
 Vulnerability Management for Go with [govulncheck](https://go.dev/blog/vuln)
 
+## [deploy] Local development with Docker Compose
+
+- Centralize dependencies in a single compose.yaml file including application + infrastructure (mysql, redis, rabbitmq, …) + testing (playwright, cucumber, …) + monitoring (prometheus, grafana) to:
+  * extend usability for integration, e2e tests.
+  * unify experience between local and CI/Preview environments.
+- Use [develop.watch](https://www.docker.com/blog/announcing-docker-compose-watch-ga-release) stanza for local development with hot reload feature (reference)
+- Use [depends_on](https://github.com/compose-spec/compose-spec/blob/master/spec.md#depends_on) and [healthcheck](https://github.com/compose-spec/compose-spec/blob/master/spec.md#healthcheck) stanza to express the startup and shutdown dependencies between services.
+- Use [build.context](https://docs.docker.com/compose/compose-file/build/#attributes) stanza with remote git repositories to deploy multiple containers in polyrepo (reference).
+- Use [delve](https://github.com/go-delve/delve) for debugging in microservices.
+
 ## Go testing best practices
 
-## [test] Table-driven tests
+## [test] Best practices
 
-## [test] Misc
-
-- See testing [docs](https://pkg.go.dev/testing)
+- Use table-driven tests, see [wiki](https://go.dev/wiki/TableDrivenTests)
 - Use `t.Parallel()` for parallel testing.
 - Use `t.Skip()` to skip a test.
 - Use `t.Setenv()` to set environment variables (since Go 1.17).
@@ -246,7 +254,7 @@ Vulnerability Management for Go with [govulncheck](https://go.dev/blog/vuln)
 - Use `go test -race` to detect data race in tests.
 - Use Uber's [goleak](https://github.com/uber-go/goleak) to detect leaked goroutines.
 
-## [test] Misc (cnt.)
+## [test] Best practices (cnt.)
 
 - Code coverage for Go integration tests, see [blog](https://go.dev/blog/integration-test-coverage).
 - Testable examples in Go, see [blog](https://go.dev/blog/examples)
@@ -325,6 +333,47 @@ References:
 
 ## Go observability best practices
 
+## [observe] Log
+
+Use `log/slog` package to handle structured logging, see [blog](https://go.dev/blog/slog), [talk](https://www.youtube.com/watch?v=8rnI2xLrdeM), [guide](https://github.com/golang/example/blob/master/slog-handler-guide/README.md)
+
+Example: getting trace data from context
+
+    type loggingHandler struct {
+        slog.Handler
+    }
+
+    func (h *loggingHandler) Handle(ctx context.Context, record slog.Record) error {
+        if txn := newrelic.FromContext(ctx); txn != nil {
+            record.AddAttrs(slog.String("trace.id", txn.GetTraceMetadata().TraceID))
+        }
+
+        return h.Handler.Handle(ctx, record)
+    }
+
+## [observe] Log (cnt.)
+
+Example: setup slog
+
+    func SetupLogging(cfg Config, appRole string) {
+        opts := &slog.HandlerOptions{
+            Level: cfg.LogLevel,
+            ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+                if a.Key == slog.MessageKey {
+                    a.Key = "message"
+                }
+                if a.Key == slog.TimeKey {
+                    a.Key = "timestamp"
+                }
+                return a
+            },
+        }
+        attrs := []slog.Attr{slog.String("app_role", appRole)}
+        jsonHandler := slog.NewJSONHandler(os.Stdout, opts).WithAttrs(attrs)
+        slog.SetDefault(slog.New(&loggingHandler{jsonHandler}))
+        slog.Info("setting up logging with slog", slog.String("log.level", cfg.LogLevel.String()))
+    }
+
 ## [observe] OpenTelemetry
 
 - Getting started with [documentation](https://opentelemetry.io/docs)
@@ -333,4 +382,3 @@ References:
 References:
 
   - [What Makes a Service Observable?](https://www.codereliant.io/what-makes-a-service-observable)
-
