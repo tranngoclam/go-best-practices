@@ -230,7 +230,7 @@ Find unreachable functions with [deadcode](https://go.dev/blog/deadcode)
 
 Vulnerability Management for Go with [govulncheck](https://go.dev/blog/vuln)
 
-## [deploy] Local development with Docker Compose
+## [develop] Local development with Docker and Docker Compose
 
 - Centralize dependencies in a single compose.yaml file including application + infrastructure (mysql, redis, rabbitmq, …) + testing (playwright, cucumber, …) + monitoring (prometheus, grafana) to:
   * extend usability for integration, e2e tests.
@@ -239,6 +239,7 @@ Vulnerability Management for Go with [govulncheck](https://go.dev/blog/vuln)
 - Use [depends_on](https://github.com/compose-spec/compose-spec/blob/master/spec.md#depends_on) and [healthcheck](https://github.com/compose-spec/compose-spec/blob/master/spec.md#healthcheck) stanza to express the startup and shutdown dependencies between services.
 - Use [build.context](https://docs.docker.com/compose/compose-file/build/#attributes) stanza with remote git repositories to deploy multiple containers in polyrepo (reference).
 - Use [delve](https://github.com/go-delve/delve) for debugging in microservices.
+- Use [devcontainer](https://containers.dev) to develop inside container.
 
 ## Go testing best practices
 
@@ -268,6 +269,23 @@ Vulnerability Management for Go with [govulncheck](https://go.dev/blog/vuln)
 ## Go building best practices
 
 ## [build] Embedding build metadata and assets
+
+Embedding one file into a string or a slice of bytes:
+
+    import _ "embed"
+
+    //go:embed hello.txt
+    var s string
+
+    //go:embed hello.txt
+    var b []byte
+
+Embedded one or more files into a file system:
+
+    import "embed"
+
+    //go:embed migrations
+    var assets embed.FS
 
 ## [build] Dockerfile best practices
 
