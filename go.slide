@@ -305,19 +305,32 @@ Embedded one or more files into a file system:
 
     FROM golang:1.22.0@sha256:7b297d9... AS build
 
-    RUN --mount=type=cache,target=/go/pkg/mod \
-       --mount=type=bind,source=./go.mod,target=./go.mod \
-       --mount=type=bind,source=./go.sum,target=./go.sum \
-       go mod download
+    ENV GOPRIVATE=gitlab.com/org/go-module
+
+    WORKDIR /src
+
+    RUN mkdir -p -m 0700 ~/.ssh && \
+        ssh-keyscan gitlab.com >> ~/.ssh/known_hosts && \
+        git config --global url.ssh://git@gitlab.com/.insteadOf https://gitlab.com/
+
+    RUN --mount=type=ssh \
+        --mount=type=cache,target=/go/pkg/mod/ \
+        --mount=type=bind,source=go.sum,target=go.sum \
+        --mount=type=bind,source=go.mod,target=go.mod \
+        ssh -q -T git@gitlab.com 2>&1 | go mod download
+
     RUN --mount=type=cache,target=/go/pkg/mod \
        --mount=type=cache,target=/root/.cache/go-build \
        --mount=type=bind,target=. \
-       CGO_ENABLED=0 go build --ldflags "-s -w" \
-       -o /bin/server ./cmd/main.go
+       CGO_ENABLED=0 go build --ldflags "-s -w" -o /bin/server ./cmd/server && \
+       go build --ldflags "-s -w" -o /bin/migration ./cmd/migration
+
+## [build] Dockerfile best practices (cnt.)
 
     FROM cgr.dev/chainguard/static@sha256:43f8701...
 
     COPY --from=build /bin/server /server
+    COPY --from=build /bin/migration /migration
     COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.24 /ko-app/grpc-health-probe /probe
 
     CMD ["/server"]
